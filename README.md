@@ -3,6 +3,58 @@ Create project
 ```bash
 oc new-project nfs-provisioner
 ```
+Create service account
+```bash
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nfs-client-provisioner
+  namespace: nfs-provisioner
+```
+Create permissions
+```bash
+oc adm policy add-scc-to-user hostmount-anyuid -z nfs-client-provisioner -n nfs-provisioner
+```
+Create permissions as well
+```bash
+oc apply -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nfs-client-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get","list","watch","create","delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get","list","watch","update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get","list","watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create","update","patch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get","list","watch","create","update","patch"]
+EOF
+
+oc apply -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: run-nfs-client-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nfs-client-provisioner-runner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-provisioner
+    namespace: nfs-provisioner
+EOF
+```
 Create provisioner
 ```bash
 apiVersion: apps/v1
@@ -59,59 +111,13 @@ Set as default storageclass
 ```bash
 oc patch storageclass nfs-client -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 ```
-Create permissions
-```bash
-oc adm policy add-scc-to-user hostmount-anyuid -z nfs-client-provisioner -n nfs-provisioner
-oc -n nfs-provisioner create role nfs-provisioner-endpoints   --verb=get,list,watch,create,update,patch   --resource=endpoints
-oc -n nfs-provisioner create rolebinding nfs-provisioner-endpoints   --role=nfs-provisioner-endpoints   --serviceaccount=nfs-provisioner:nfs-client-provisioner
-```
-Create permissions as well
-```bash
-oc apply -f - <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: nfs-client-provisioner-runner
-rules:
-  - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["get","list","watch","create","delete"]
-  - apiGroups: [""]
-    resources: ["persistentvolumeclaims"]
-    verbs: ["get","list","watch","update"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get","list","watch"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["create","update","patch"]
-  - apiGroups: [""]
-    resources: ["endpoints"]
-    verbs: ["get","list","watch","create","update","patch"]
-EOF
-
-oc apply -f - <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: run-nfs-client-provisioner
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: nfs-client-provisioner-runner
-subjects:
-  - kind: ServiceAccount
-    name: nfs-client-provisioner
-    namespace: nfs-provisioner
-EOF
-```
 Create pvc
 ```bash
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: test-nfs-pvc
-  namespace: nfs-provisioner
+  namespace: default
 spec:
   accessModes:
     - ReadWriteMany
@@ -122,7 +128,8 @@ spec:
 ```
 Check the pvc status if it is bound
 ```bash
+oc get pvc -n default
 NAME           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
-test-nfs-pvc   Bound    pvc-97dc2ef0-7d4b-413c-a8f3-a4705a0440a9   1Gi        RWX            nfs-client     <unset>                 5m22s
+default   Bound    pvc-97dc2ef0-7d4b-413c-a8f3-a4705a0440a9   1Gi        RWX            nfs-client     <unset>                 5m22s
 ```
 
