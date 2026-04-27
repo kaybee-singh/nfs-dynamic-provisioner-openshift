@@ -129,7 +129,7 @@ spec:
     requests:
       storage: 1Gi
   storageClassName: nfs-client
-  EOF
+EOF
 ```
 Check the pvc status if it is bound
 ```bash
