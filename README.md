@@ -5,11 +5,13 @@ oc new-project nfs-provisioner
 ```
 Create service account
 ```bash
+oc apply -f - <<'EOF'
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: nfs-client-provisioner
   namespace: nfs-provisioner
+EOF
 ```
 Create permissions
 ```bash
@@ -92,10 +94,10 @@ spec:
           nfs:
             server: 192.168.122.24        # <-- same as above
             path: /srv/ocp-nfs
-
 ```
 Create storageclass
 ```bash
+oc apply -f - <<'EOF'
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -106,6 +108,7 @@ parameters:
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
+EOF
 ```
 Set as default storageclass
 ```bash
@@ -113,6 +116,7 @@ oc patch storageclass nfs-client -p '{"metadata": {"annotations":{"storageclass.
 ```
 Create pvc
 ```bash
+oc apply -f - <<'EOF'
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -125,6 +129,7 @@ spec:
     requests:
       storage: 1Gi
   storageClassName: nfs-client
+  EOF
 ```
 Check the pvc status if it is bound
 ```bash
